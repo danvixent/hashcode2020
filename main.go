@@ -6,9 +6,9 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -39,18 +39,29 @@ func main() {
 
 			alpha = extract(strings.Split(lines[0], " "))
 			allLibs = make([]library, (*alpha)[1])
+
+			id := -1
+			for val := range *(extract(strings.Split(lines[1], " "))) {
+				id++
+				allBooks[id] = bookScore(val)
+			}
+
 			nxtID := -1
 			for i := 2; i < len(lines); i = i + 2 {
 				tmp := strings.Split(lines[i], " ")
 				nxtID++
-				struc := library{
-					ID:          nxtID,
-					SignUpTime:  strconv.Atoi(tmp[1]),
-					ScansPerDay: strconv.Atoi(tmp[2]),
-					BookIDs:     *(extract(strings.Split(lines[i+1], " "))),
-				}
-				allLibs = append(allLibs, struc)
+				struc := &library{}
+				struc.ID = nxtID
+				struc.SignUpTime, _ = strconv.Atoi(tmp[1])
+				struc.ScansPerDay, _ = strconv.Atoi(tmp[2])
+				struc.BookIDs = *(extract(strings.Split(lines[i+1], " ")))
+				struc.calcQuality()
+				allLibs = append(allLibs, *struc)
 			}
+			sort.SliceStable(allLibs, func(i, j int) bool {
+				return allLibs[i].Quality > allLibs[j].Quality
+			})
+			simulate()
 		}
 		return nil
 	})
@@ -73,24 +84,28 @@ func extract(slice []string) *[]int {
 	return &tmp
 }
 
+func simulate() {
+	count := 0
+	for _, lib := range allLibs {
+		go procLibs(&lib)
+		count++
+	}
+	wait.Add(count)
+}
+
 func procLibs(lib *library) {
 	<-signup
-	defer runtime.Goexit()
-
-	signUpLock.Lock()
-	nxtLib++
-	signUpLock.Unlock()
-
+	defer wait.Done()
 	time.Sleep(1)
 	lib.IsSignedUp = true
-	go scanBooks(lib)
+	days = days - lib.SignUpTime
 	signup <- true
+	scanBooks(lib)
+	runtime.Goexit()
 }
 
 func scanBooks(lib *library) {
 	bksToScan := int(len(lib.BookIDs) / lib.ScansPerDay)
-	var days = (*alpha)[2]
-
 	for {
 		if bksToScan > days {
 			bksToScan -= lib.ScansPerDay
@@ -101,7 +116,7 @@ func scanBooks(lib *library) {
 
 	for ix := 0; ix < bksToScan; ix++ {
 		if !seen[lib.BookIDs[ix]] {
-			findBook(lib.BookIDs[ix]).Scan()
+			lib.ScannedBooks = append(lib.ScannedBooks, ix)
 			seen[lib.BookIDs[ix]] = true
 		}
 	}
