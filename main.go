@@ -38,12 +38,13 @@ func main() {
 			}
 
 			alpha = extract(strings.Split(lines[0], " "))
+			days = (*alpha)[2] //package level variable
 			allLibs = make([]library, (*alpha)[1])
 
 			id := -1
 			for val := range *(extract(strings.Split(lines[1], " "))) {
 				id++
-				allBooks[id] = bookScore(val)
+				booksAndScores[id] = bookScore(val)
 			}
 
 			nxtID := -1
@@ -58,10 +59,13 @@ func main() {
 				struc.calcQuality()
 				allLibs = append(allLibs, *struc)
 			}
+			fmt.Printf("Before Sorting Libaries -> %v", allLibs)
 			sort.SliceStable(allLibs, func(i, j int) bool {
 				return allLibs[i].Quality > allLibs[j].Quality
 			})
+			fmt.Printf("After Sorting Libaries -> %v", allLibs)
 			simulate()
+			printToFile(path)
 		}
 		return nil
 	})
@@ -86,6 +90,7 @@ func extract(slice []string) *[]int {
 
 func simulate() {
 	count := 0
+	signup <- true
 	for _, lib := range allLibs {
 		go procLibs(&lib)
 		count++
@@ -98,26 +103,50 @@ func procLibs(lib *library) {
 	defer wait.Done()
 	time.Sleep(1)
 	lib.IsSignedUp = true
+	time.Sleep(20 * time.Millisecond)
 	days = days - lib.SignUpTime
 	signup <- true
-	scanBooks(lib)
+	lib.scanBooks(days)
 	runtime.Goexit()
 }
 
-func scanBooks(lib *library) {
-	bksToScan := int(len(lib.BookIDs) / lib.ScansPerDay)
-	for {
-		if bksToScan > days {
-			bksToScan -= lib.ScansPerDay
-			continue
+func shipBooks(IDs []int) *[]int {
+	tmp := make([]int, 0)
+	for _, id := range IDs {
+		see.Lock()
+		if !seen[id] {
+			seen[id] = true
+			tmp = append(tmp, id)
 		}
-		break
+		see.Unlock()
+	}
+	return &tmp
+}
+
+//Print needed output to file
+func printToFile(path string) {
+	outFile := strings.ReplaceAll(path, ".", "_output.")
+
+	f, err := os.Create(outFile)
+	defer f.Close()
+	if err != nil {
+		fmt.Println("Cannot create output file: ", err)
+		return // return since there is no file to write to
 	}
 
-	for ix := 0; ix < bksToScan; ix++ {
-		if !seen[lib.BookIDs[ix]] {
-			lib.ScannedBooks = append(lib.ScannedBooks, ix)
-			seen[lib.BookIDs[ix]] = true
-		}
+	_, err = f.Write([]byte(output))
+	if err != nil {
+		fmt.Println("Cannot write output to file: ", err)
 	}
+	f.Sync()
+}
+
+func addOutput(lib *library) {
+	out.Lock()
+	output = strconv.Itoa(lib.ID) + " " + strconv.Itoa(len(lib.ScannedBooks)) + "\n"
+	for _, id := range lib.ScannedBooks {
+		output += strconv.Itoa(id) + " "
+	}
+	output = output + "\n"
+	out.Unlock()
 }

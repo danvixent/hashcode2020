@@ -1,15 +1,22 @@
 package main
 
-import "sync"
+import (
+	"fmt"
+	"sort"
+	"sync"
+)
 
 var signup = make(chan bool, 1)
-var signUpLock sync.Mutex
 
-var days = (*alpha)[2]
+var output = ""
+var out sync.Mutex
+
+var days = 0
 var allLibs []library
-var allBooks = make(map[int]bookScore)
+var booksAndScores = make(map[int]bookScore)
 var alpha *[]int
 var seen = make(map[int]bool)
+var see sync.Mutex
 var wait sync.WaitGroup
 
 // describes each library
@@ -35,7 +42,25 @@ func (l *library) calcQuality() {
 func (l *library) avgBookScore() float64 {
 	scores := 0.0
 	for _, id := range l.BookIDs {
-		scores += float64(allBooks[id])
+		scores += float64(booksAndScores[id])
 	}
 	return scores / float64(len(l.BookIDs))
+}
+
+func (l *library) scanBooks(shippingDays int) {
+	maxBooksToShip := shippingDays * l.ScansPerDay
+	if maxBooksToShip < len(l.BookIDs) {
+		l.ScannedBooks = *(shipBooks(l.BookIDs[:maxBooksToShip]))
+		return
+	}
+	l.ScannedBooks = *(shipBooks(l.BookIDs))
+	addOutput(l)
+}
+
+func (l *library) sortBooksByScore(shippingDays int) {
+	fmt.Printf("Before Sorting %d's Books By Score -> %v\n", l.ID, l.BookIDs)
+	sort.SliceStable(l, func(i, j int) bool {
+		return booksAndScores[l.BookIDs[i]] > booksAndScores[l.BookIDs[j]]
+	})
+	fmt.Printf("After Sorting %d's Books By Score -> %v\n", l.ID, l.BookIDs)
 }
