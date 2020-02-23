@@ -17,15 +17,14 @@ func main() {
 	err := os.Mkdir("outputs", os.ModePerm)
 	if err != nil {
 		fmt.Printf("Could not create outputs directory: %v\n", err)
+		os.Exit(3)
 	}
-	// Read the `input` directory so that we don't have to
-	// modify the code whenever we want to test other inputs
+	// walk through the input directory
 	str := time.Now()
 	filepath.Walk("inputs", func(path string, info os.FileInfo, err error) error {
 		if !info.IsDir() {
 			file, err := os.Open(path)
 			if err != nil {
-				// we dont want to stop the whole app if just one file does not open
 				return err
 			}
 			defer file.Close()
@@ -37,12 +36,12 @@ func main() {
 				lines = append(lines, scanner.Text())
 			}
 
-			alpha = extract(strings.Split(lines[0], " "))
-			days = (*alpha)[2] //package level variable
-			allLibs = make([]library, (*alpha)[1])
+			alpha = *extract(strings.Split(lines[0], " "))
+			days = alpha[2]                        //package level variable
+			allLibs = make([]library, 0, alpha[1]) //eliminate making calls to append() reallocate
 
 			id := -1
-			for val := range *(extract(strings.Split(lines[1], " "))) {
+			for _, val := range *(extract(strings.Split(lines[1], " "))) {
 				id++
 				booksAndScores[id] = bookScore(val)
 			}
@@ -55,15 +54,13 @@ func main() {
 				struc.ID = nxtID
 				struc.SignUpTime, _ = strconv.Atoi(tmp[1])
 				struc.ScansPerDay, _ = strconv.Atoi(tmp[2])
-				struc.BookIDs = *(extract(strings.Split(lines[i+1], " ")))
+				struc.BookIDs = extract(strings.Split(lines[i+1], " "))
 				struc.calcQuality()
 				allLibs = append(allLibs, *struc)
 			}
-			fmt.Printf("Before Sorting Libaries -> %v", allLibs)
 			sort.SliceStable(allLibs, func(i, j int) bool {
 				return allLibs[i].Quality > allLibs[j].Quality
 			})
-			fmt.Printf("After Sorting Libaries -> %v", allLibs)
 			simulate()
 			printToFile(path)
 		}
@@ -73,60 +70,48 @@ func main() {
 	fmt.Println("Time:", stp)
 }
 
-// extract returns the integer equivalents of numbers in the slice parameter...translated into a slice of ints
-func extract(slice []string) *[]int {
-	var tmp []int
-	for ix := range slice {
-		ref, err := strconv.Atoi(slice[ix])
-		// Because the error isn't supposed to occur at all, i'll handle it here
-		if err != nil {
-			fmt.Println("Conversion failed")
-			os.Exit(3) // we make this stringent because this error should never occur
-		}
-		tmp = append(tmp, ref)
-	}
-	return &tmp
-}
-
 func simulate() {
-	count := 0
-	signup <- true
 	for _, lib := range allLibs {
+		time.Sleep(20 * time.Millisecond)
 		go procLibs(&lib)
-		count++
 	}
-	wait.Add(count)
+	wait.Add(len(allLibs))
+	wait.Wait()
 }
 
 func procLibs(lib *library) {
-	<-signup
-	defer wait.Done()
-	time.Sleep(1)
+	signup.Lock()
 	lib.IsSignedUp = true
 	time.Sleep(20 * time.Millisecond)
 	days = days - lib.SignUpTime
-	signup <- true
-	lib.scanBooks(days)
-	runtime.Goexit()
-}
+	signup.Unlock()
 
-func shipBooks(IDs []int) *[]int {
-	tmp := make([]int, 0)
-	for _, id := range IDs {
-		see.Lock()
-		if !seen[id] {
-			seen[id] = true
-			tmp = append(tmp, id)
-		}
-		see.Unlock()
-	}
-	return &tmp
+	scanBooks(lib, days)
+	fmt.Println("Goroutine for ", lib.ID, "finished")
+	wait.Done()
+	runtime.Goexit()
 }
 
 //Print needed output to file
 func printToFile(path string) {
-	outFile := strings.ReplaceAll(path, ".", "_output.")
+	output := ""
+	noLib := 0
+	for _, lib := range allLibs {
+		if lib.ScannedBooks == nil {
+			continue
+		}
+		output += strconv.Itoa(lib.ID) + " " + strconv.Itoa(len(*lib.ScannedBooks)) + "\n"
+		noLib++
+		for _, id := range *lib.ScannedBooks {
+			output += strconv.Itoa(id) + " "
+		}
+		output += "\n"
+	}
+	output = strconv.Itoa(noLib) + output
 
+	outFile := strings.ReplaceAll(path, ".", "_output.")
+	outFile = strings.Trim(outFile, "inputs")
+	outFile = "outputs" + outFile
 	f, err := os.Create(outFile)
 	defer f.Close()
 	if err != nil {
@@ -139,14 +124,4 @@ func printToFile(path string) {
 		fmt.Println("Cannot write output to file: ", err)
 	}
 	f.Sync()
-}
-
-func addOutput(lib *library) {
-	out.Lock()
-	output = strconv.Itoa(lib.ID) + " " + strconv.Itoa(len(lib.ScannedBooks)) + "\n"
-	for _, id := range lib.ScannedBooks {
-		output += strconv.Itoa(id) + " "
-	}
-	output = output + "\n"
-	out.Unlock()
 }
