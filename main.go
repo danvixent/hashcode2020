@@ -37,11 +37,13 @@ func main() {
 			}
 
 			alpha = *extract(strings.Split(lines[0], " "))
-			days = alpha[2]                        //package level variable
-			allLibs = make([]library, 0, alpha[1]) //eliminate making calls to append() reallocate
+			days = alpha[2]                         //package level variable
+			allLibs = make([]*library, 0, alpha[1]) //eliminate making calls to append() reallocate
 
 			id := -1
-			for _, val := range *(extract(strings.Split(lines[1], " "))) {
+			fmt.Println("line[1]->", lines[1])
+			tmp := extract(strings.Split(lines[1], " "))
+			for _, val := range *tmp {
 				id++
 				booksAndScores[id] = bookScore(val)
 			}
@@ -56,13 +58,14 @@ func main() {
 				struc.ScansPerDay, _ = strconv.Atoi(tmp[2])
 				struc.BookIDs = extract(strings.Split(lines[i+1], " "))
 				struc.calcQuality()
-				allLibs = append(allLibs, *struc)
+				allLibs = append(allLibs, struc)
 			}
 			sort.SliceStable(allLibs, func(i, j int) bool {
 				return allLibs[i].Quality > allLibs[j].Quality
 			})
 			simulate()
 			printToFile(path)
+			clearDataStructures()
 		}
 		return nil
 	})
@@ -71,24 +74,26 @@ func main() {
 }
 
 func simulate() {
+	count := 0
 	for _, lib := range allLibs {
-		time.Sleep(20 * time.Millisecond)
-		go procLibs(&lib)
+		// time.Sleep(10 * time.Millisecond)
+		go procLibs(lib)
+		count++
 	}
-	wait.Add(len(allLibs))
+	wait.Add(count)
 	wait.Wait()
 }
 
 func procLibs(lib *library) {
+	defer wait.Done()
+	tmp := 0
 	signup.Lock()
-	lib.IsSignedUp = true
-	time.Sleep(20 * time.Millisecond)
-	days = days - lib.SignUpTime
+	lib.signUp()
+	tmp = days
 	signup.Unlock()
 
-	scanBooks(lib, days)
+	lib.scanBooks(tmp)
 	fmt.Println("Goroutine for ", lib.ID, "finished")
-	wait.Done()
 	runtime.Goexit()
 }
 
@@ -107,11 +112,11 @@ func printToFile(path string) {
 		}
 		output += "\n"
 	}
-	output = strconv.Itoa(noLib) + output
+	output = strconv.Itoa(noLib) + "\n" + output
 
-	outFile := strings.ReplaceAll(path, ".", "_output.")
-	outFile = strings.Trim(outFile, "inputs")
-	outFile = "outputs" + outFile
+	outFile := strings.Trim(path, "inputs")
+	outFile = outFile[1:2] + ".out"
+	outFile = "outputs/" + outFile
 	f, err := os.Create(outFile)
 	defer f.Close()
 	if err != nil {

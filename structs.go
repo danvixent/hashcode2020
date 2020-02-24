@@ -11,7 +11,7 @@ var out sync.Mutex
 var see sync.Mutex
 
 var days = 0
-var allLibs []library
+var allLibs []*library
 var booksAndScores = make(map[int]bookScore)
 var numOfLibsToShipFrom = 0
 var alpha []int
@@ -44,6 +44,21 @@ func (l *library) avgBookScore() float64 {
 		scores += float64(booksAndScores[id])
 	}
 	return scores / float64(len(*l.BookIDs))
+}
+
+func (l *library) signUp() {
+	l.IsSignedUp = true
+	days = days - l.SignUpTime
+}
+
+func (l *library) scanBooks(shippingDays int) {
+	// l.sortBooksByScore()
+	maxBooksToShip := shippingDays * l.ScansPerDay
+	if maxBooksToShip < len(*l.BookIDs) {
+		l.ScannedBooks = shipBooks((*l.BookIDs)[:maxBooksToShip])
+		return
+	}
+	l.ScannedBooks = shipBooks(*l.BookIDs)
 }
 
 func (l *library) sortBooksByScore() {

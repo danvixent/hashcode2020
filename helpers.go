@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime"
 	"strconv"
 )
 
@@ -20,16 +21,6 @@ func extract(slice []string) *[]int {
 	return &tmp
 }
 
-func scanBooks(l *library, shippingDays int) {
-	// l.sortBooksByScore()
-	maxBooksToShip := shippingDays * l.ScansPerDay
-	if maxBooksToShip < len(*l.BookIDs) {
-		l.ScannedBooks = shipBooks((*l.BookIDs)[:maxBooksToShip])
-		return
-	}
-	l.ScannedBooks = shipBooks(*l.BookIDs)
-}
-
 func shipBooks(IDs []int) *[]int {
 	tmp := make([]int, 0)
 	for _, id := range IDs {
@@ -41,4 +32,14 @@ func shipBooks(IDs []int) *[]int {
 		see.Unlock()
 	}
 	return &tmp
+}
+
+func clearDataStructures() {
+	days = 0
+	allLibs = nil
+	booksAndScores = make(map[int]bookScore)
+	numOfLibsToShipFrom = 0
+	alpha = nil
+	seen = make(map[int]bool)
+	runtime.GC()
 }
