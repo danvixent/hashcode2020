@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"sort"
 	"strconv"
 )
 
@@ -32,6 +33,13 @@ func shipBooks(IDs []int) *[]int {
 		see.Unlock()
 	}
 	return &tmp
+}
+
+func sortLibs() {
+	sort.SliceStable(allLibs, func(i, j int) bool {
+		return allLibs[i].Quality > allLibs[j].Quality
+	})
+
 }
 
 func clearDataStructures() {

@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -41,7 +40,6 @@ func main() {
 			allLibs = make([]*library, 0, alpha[1]) //eliminate making calls to append() reallocate
 
 			id := -1
-			fmt.Println("line[1]->", lines[1])
 			tmp := extract(strings.Split(lines[1], " "))
 			for _, val := range *tmp {
 				id++
@@ -60,10 +58,15 @@ func main() {
 				struc.calcQuality()
 				allLibs = append(allLibs, struc)
 			}
-			sort.SliceStable(allLibs, func(i, j int) bool {
-				return allLibs[i].Quality > allLibs[j].Quality
-			})
-			simulate()
+			sortLibs()
+			count := 0
+			for _, lib := range allLibs {
+				go procLibs(lib)
+				count++
+			}
+			wait.Add(count)
+			wait.Wait()
+
 			printToFile(path)
 			clearDataStructures()
 		}
@@ -73,20 +76,10 @@ func main() {
 	fmt.Println("Time:", stp)
 }
 
-func simulate() {
-	count := 0
-	for _, lib := range allLibs {
-		// time.Sleep(10 * time.Millisecond)
-		go procLibs(lib)
-		count++
-	}
-	wait.Add(count)
-	wait.Wait()
-}
-
 func procLibs(lib *library) {
-	defer wait.Done()
+	time.Sleep(10 * time.Millisecond) //do not remove used to curtail speed of goroutines
 	tmp := 0
+
 	signup.Lock()
 	lib.signUp()
 	tmp = days
@@ -94,6 +87,7 @@ func procLibs(lib *library) {
 
 	lib.scanBooks(tmp)
 	fmt.Println("Goroutine for ", lib.ID, "finished")
+	wait.Done()
 	runtime.Goexit()
 }
 
