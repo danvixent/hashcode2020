@@ -55,12 +55,13 @@ func (l *library) scanBooks(shippingDays int) {
 	// l.sortBooksByScore()
 	maxBooksToShip := shippingDays * l.ScansPerDay
 	if maxBooksToShip < len(*l.BookIDs) {
-		l.ScannedBooks = shipBooks((*l.BookIDs)[:maxBooksToShip])
+		l.ScannedBooks = shipBooks(l.BookIDs, maxBooksToShip)
 		return
 	}
-	l.ScannedBooks = shipBooks(*l.BookIDs)
+	l.ScannedBooks = shipBooks(l.BookIDs, -1)
 }
 
+//TO IMPLEMENT
 func (l *library) sortBooksByScore() {
 	fmt.Printf("Before Sorting %d's Books By Score -> %v\n", l.ID, l.BookIDs)
 	sort.SliceStable(l, func(i, j int) bool {

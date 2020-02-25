@@ -22,24 +22,43 @@ func extract(slice []string) *[]int {
 	return &tmp
 }
 
-func shipBooks(IDs []int) *[]int {
-	tmp := make([]int, 0)
-	for _, id := range IDs {
-		see.Lock()
-		if !seen[id] {
-			seen[id] = true
-			tmp = append(tmp, id)
+func shipBooks(IDs *[]int, max int) *[]int {
+	if max == -1 {
+		tmp := make([]int, 0)
+		for _, id := range *IDs {
+			see.Lock()
+			if !seen[id] {
+				seen[id] = true
+				tmp = append(tmp, id)
+			}
+			see.Unlock()
 		}
-		see.Unlock()
+		return &tmp
+	}
+
+	tmp := make([]int, 0, len(*IDs)/2) //eliminate slice re-allocations to my best ability
+	for _, id := range *IDs {
+		if max > 0 { //ship possibly to the maximum number of books allowed
+			//i placed this in this loop because it number of books might be less than the maximum given
+			see.Lock()
+			if !seen[id] {
+				seen[id] = true
+				tmp = append(tmp, id)
+				max--
+			}
+			see.Unlock()
+			continue
+		}
+		break
 	}
 	return &tmp
+
 }
 
 func sortLibs() {
 	sort.SliceStable(allLibs, func(i, j int) bool {
 		return allLibs[i].Quality > allLibs[j].Quality
 	})
-
 }
 
 func clearDataStructures() {

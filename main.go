@@ -103,7 +103,7 @@ func printToFile(path string) {
 	output := ""
 	noLib := 0
 	for _, lib := range allLibs {
-		if lib.ScannedBooks == nil {
+		if lib.ScannedBooks == nil || len(*lib.ScannedBooks) == 0 {
 			continue
 		}
 		output += strconv.Itoa(lib.ID) + " " + strconv.Itoa(len(*lib.ScannedBooks)) + "\n"
