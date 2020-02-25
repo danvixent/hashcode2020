@@ -1,8 +1,9 @@
 package main
 
 import (
-	"bufio"
+	"bytes"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -27,12 +28,19 @@ func main() {
 				return err
 			}
 			defer file.Close()
-			scanner := bufio.NewScanner(file)
-			scanner.Split(bufio.ScanLines)
+			data, _ := ioutil.ReadAll(file)
+			splitted := bytes.Split(data, []byte("\n"))
 
 			var lines []string
-			for scanner.Scan() {
-				lines = append(lines, scanner.Text())
+			cha := ""
+			for i, b := range splitted {
+				for _, c := range b {
+					cha += string(c)
+				}
+				if i < len(splitted)-1 {
+					lines = append(lines, cha)
+					cha = ""
+				}
 			}
 
 			alpha = *extract(strings.Split(lines[0], " "))
@@ -49,6 +57,7 @@ func main() {
 			nxtID := -1
 			for i := 2; i < len(lines); i = i + 2 {
 				tmp := strings.Split(lines[i], " ")
+				fmt.Println("tmp =", tmp)
 				nxtID++
 				struc := &library{}
 				struc.ID = nxtID
@@ -59,12 +68,10 @@ func main() {
 				allLibs = append(allLibs, struc)
 			}
 			sortLibs()
-			count := 0
 			for _, lib := range allLibs {
 				go procLibs(lib)
-				count++
+				wait.Add(1)
 			}
-			wait.Add(count)
 			wait.Wait()
 
 			printToFile(path)
